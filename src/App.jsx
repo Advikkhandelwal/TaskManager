@@ -1,11 +1,16 @@
 import React, { useState, useEffect } from 'react';
+import { createEvent } from 'ics';
 
 const App = () => {
-  // State management with localStorage initialization
   const [taskInput, setTaskInput] = useState("");
   const [tasks, setTasks] = useState(() => {
-    const savedTasks = localStorage.getItem('tasks');
-    return savedTasks ? JSON.parse(savedTasks) : [];
+    try {
+      const savedTasks = localStorage.getItem('tasks');
+      return savedTasks ? JSON.parse(savedTasks) : [];
+    } catch (error) {
+      console.error('Error loading tasks:', error);
+      return [];
+    }
   });
   const [editingTaskId, setEditingTaskId] = useState(null);
   const [taskPriority, setTaskPriority] = useState("Medium");
@@ -13,44 +18,100 @@ const App = () => {
   const [dueTime, setDueTime] = useState("");
   const [recurrence, setRecurrence] = useState("None");
   const [suggestions, setSuggestions] = useState([]);
-  const [sortOrder, setSortOrder] = useState(() => {
-    const savedSortOrder = localStorage.getItem('sortOrder');
-    return savedSortOrder || "desc";
-  });
+  const [sortOrder, setSortOrder] = useState("desc");
   const [showShareMsg, setShowShareMsg] = useState(false);
+  const [showCalendarMsg, setShowCalendarMsg] = useState(false);
   const [cursorPos, setCursorPos] = useState({ x: 0, y: 0 });
   const [isCursorActive, setIsCursorActive] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [notifPermission, setNotifPermission] = useState("default");
-  const [filterBy, setFilterBy] = useState(() => {
-    const savedFilterBy = localStorage.getItem('filterBy');
-    return savedFilterBy || "all";
-  });
+  const [filterBy, setFilterBy] = useState("all");
   const [showFilters, setShowFilters] = useState(false);
-  const [sortBy, setSortBy] = useState(() => {
-    const savedSortBy = localStorage.getItem('sortBy');
-    return savedSortBy || "creationDate";
-  });
+  const [sortBy, setSortBy] = useState("creationDate");
   const [showHistory, setShowHistory] = useState(false);
   const [taskHistory, setTaskHistory] = useState(() => {
-    const savedHistory = localStorage.getItem('taskHistory');
-    return savedHistory ? JSON.parse(savedHistory) : [];
+    try {
+      const savedHistory = localStorage.getItem('taskHistory');
+      return savedHistory ? JSON.parse(savedHistory) : [];
+    } catch (error) {
+      console.error('Error loading task history:', error);
+      return [];
+    }
   });
   const [completedTasks, setCompletedTasks] = useState(() => {
-    const savedCompletedTasks = localStorage.getItem('completedTasks');
-    return savedCompletedTasks ? JSON.parse(savedCompletedTasks) : [];
+    try {
+      const savedCompleted = localStorage.getItem('completedTasks');
+      return savedCompleted ? JSON.parse(savedCompleted) : [];
+    } catch (error) {
+      console.error('Error loading completed tasks:', error);
+      return [];
+    }
   });
   const [reminderSettings, setReminderSettings] = useState(() => {
-    const savedSettings = localStorage.getItem('reminderSettings');
-    return savedSettings ? JSON.parse(savedSettings) : {
-      enableNotifications: true,
-      reminderBefore: 15,
-      soundEnabled: true
-    };
+    try {
+      const savedSettings = localStorage.getItem('reminderSettings');
+      return savedSettings ? JSON.parse(savedSettings) : {
+        enableNotifications: true,
+        reminderBefore: 15,
+        soundEnabled: true
+      };
+    } catch (error) {
+      console.error('Error loading reminder settings:', error);
+      return {
+        enableNotifications: true,
+        reminderBefore: 15,
+        soundEnabled: true
+      };
+    }
   });
   const [showReminderSettings, setShowReminderSettings] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   const priorities = ["Low", "Medium", "High"];
+
+  // Mouse tracking effect
+  useEffect(() => {
+    const handleMouseMove = (e) => setCursorPos({ x: e.clientX, y: e.clientY });
+    const handleMouseDown = () => setIsCursorActive(true);
+    const handleMouseUp = () => setIsCursorActive(false);
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mousedown', handleMouseDown);
+    window.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mousedown', handleMouseDown);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
+
+  // Load initial data
+  useEffect(() => {
+    try {
+      // Load all data from localStorage
+      const savedTasks = localStorage.getItem('tasks');
+      const savedHistory = localStorage.getItem('taskHistory');
+      const savedCompleted = localStorage.getItem('completedTasks');
+      const savedSettings = localStorage.getItem('reminderSettings');
+      const savedSortOrder = localStorage.getItem('sortOrder');
+      const savedFilterBy = localStorage.getItem('filterBy');
+      const savedSortBy = localStorage.getItem('sortBy');
+
+      if (savedTasks) setTasks(JSON.parse(savedTasks));
+      if (savedHistory) setTaskHistory(JSON.parse(savedHistory));
+      if (savedCompleted) setCompletedTasks(JSON.parse(savedCompleted));
+      if (savedSettings) setReminderSettings(JSON.parse(savedSettings));
+      if (savedSortOrder) setSortOrder(savedSortOrder);
+      if (savedFilterBy) setFilterBy(savedFilterBy);
+      if (savedSortBy) setSortBy(savedSortBy);
+
+      setIsLoading(false);
+    } catch (error) {
+      console.error('Error loading initial data:', error);
+      setIsLoading(false);
+    }
+  }, []);
 
   // Save to localStorage whenever relevant state changes
   useEffect(() => {
@@ -80,23 +141,6 @@ const App = () => {
   useEffect(() => {
     localStorage.setItem('sortBy', sortBy);
   }, [sortBy]);
-
-  // Mouse tracking effect
-  useEffect(() => {
-    const handleMouseMove = (e) => setCursorPos({ x: e.clientX, y: e.clientY });
-    const handleMouseDown = () => setIsCursorActive(true);
-    const handleMouseUp = () => setIsCursorActive(false);
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mousedown', handleMouseDown);
-    window.addEventListener('mouseup', handleMouseUp);
-
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mousedown', handleMouseDown);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, []);
 
   // Enhanced notification setup
   useEffect(() => {
@@ -243,7 +287,7 @@ const App = () => {
 
   const formatDate = (date) => date.toISOString().split("T")[0];
 
-  const handleTaskSubmit = async () => {
+  const handleTaskSubmit = () => {
     if (taskInput.trim() === "") return;
 
     const newTask = {
@@ -348,7 +392,6 @@ const App = () => {
   const getFilteredAndSortedTasks = () => {
     let filteredTasks = [...tasks];
 
-    // Apply filters
     const filters = {
       all: () => filteredTasks,
       today: () => {
@@ -379,7 +422,6 @@ const App = () => {
       filteredTasks = filters[filterBy]();
     }
 
-    // Apply sorting
     const sorters = {
       priority: () => {
         const priorityOrder = { High: 3, Medium: 2, Low: 1 };
@@ -427,6 +469,61 @@ const App = () => {
     }
   };
 
+  const handleCalendarExport = (task) => {
+    if (!task.dueDate) {
+      alert('Please add a due date to export to calendar');
+      return;
+    }
+
+    const [year, month, day] = task.dueDate.split('-').map(Number);
+    let hour = 0, minute = 0;
+
+    if (task.dueTime) {
+      const [time, period] = task.dueTime.split(' ');
+      [hour, minute] = time.split(':').map(Number);
+      if (period === 'PM' && hour !== 12) hour += 12;
+      if (period === 'AM' && hour === 12) hour = 0;
+    }
+
+    const event = {
+      start: [year, month, day, hour, minute],
+      duration: { hours: 1 },
+      title: task.todoText,
+      description: `Priority: ${task.priority}\nRecurrence: ${task.recurrence}`,
+      status: 'CONFIRMED',
+      busyStatus: 'BUSY',
+      categories: ['Task'],
+    };
+
+    createEvent(event, (error, value) => {
+      if (error) {
+        console.error('Error creating calendar event:', error);
+        return;
+      }
+
+      const blob = new Blob([value], { type: 'text/calendar;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${task.todoText.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.ics`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      setShowCalendarMsg(true);
+      setTimeout(() => setShowCalendarMsg(false), 2000);
+    });
+  };
+
+  if (isLoading) {
+    return (
+      <div className="app-container">
+        <div className="loading">Loading...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="app-container">
       {notifPermission === "default" && (
@@ -454,7 +551,9 @@ const App = () => {
         className={`cursor-follower ${isCursorActive ? 'active' : ''}`}
         style={{ left: `${cursorPos.x}px`, top: `${cursorPos.y}px` }}
       />
-      <h1 className="title">Task Manager</h1>
+      <div className="header-container">
+        <h1 className="title">Task Manager</h1>
+      </div>
 
       <div className="controls-container">
         <div className="sort-filter-controls">
@@ -655,6 +754,11 @@ const App = () => {
             Link copied to clipboard!
           </div>
         )}
+        {showCalendarMsg && (
+          <div className="share-message">
+            Calendar event exported successfully!
+          </div>
+        )}
         {showHistory && (
           <div className="history-container">
             <h3 className="history-title">Task History</h3>
@@ -707,6 +811,13 @@ const App = () => {
                     <button onClick={() => handleEdit(task.id)}>Edit</button>
                     <button onClick={() => handleTaskComplete(task.id)}>Complete</button>
                     <button onClick={() => handleDelete(task.id)}>Delete</button>
+                    <button
+                      onClick={() => handleCalendarExport(task)}
+                      className="calendar-button"
+                      title="Export to Calendar"
+                    >
+                      📅 Calendar
+                    </button>
                   </>
                 )}
               </div>
