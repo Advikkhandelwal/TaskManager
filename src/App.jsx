@@ -1,16 +1,78 @@
 import React, { useState, useEffect } from 'react';
-import { createEvent } from 'ics';
+import TaskStats from './components/TaskStats';
+import TaskCalendar from './components/TaskCalendar';
+
+const styles = {
+  appContainer: {
+    padding: '40px 20px',
+    minHeight: '100vh',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '32px',
+    maxWidth: '1200px',
+    margin: '0 auto'
+  },
+  title: {
+    fontSize: '3rem',
+    margin: '24px 0',
+    textAlign: 'center'
+  },
+  controlsContainer: {
+    margin: '24px 0',
+    padding: '20px',
+    background: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: '12px',
+    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)'
+  },
+  inputContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '16px',
+    padding: '24px',
+    background: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: '12px',
+    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
+    margin: '24px 0'
+  },
+  todoList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '20px',
+    padding: '24px',
+    background: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: '12px',
+    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
+    margin: '24px 0'
+  },
+  todoItem: {
+    padding: '20px',
+    marginBottom: '16px',
+    fontSize: '1.1rem',
+    minHeight: '80px',
+    background: 'white',
+    borderRadius: '8px',
+    boxShadow: '0 2px 10px rgba(0, 0, 0, 0.05)'
+  },
+  tasksSummary: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    width: '100%',
+    maxWidth: '1200px',
+    margin: '32px auto',
+    padding: '24px 32px',
+    background: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: '12px',
+    boxShadow: '0 4px 20px rgba(33, 53, 85, 0.1)',
+    border: '1px solid #D8C4B6',
+    fontSize: '1.2rem'
+  }
+};
 
 const App = () => {
   const [taskInput, setTaskInput] = useState("");
   const [tasks, setTasks] = useState(() => {
-    try {
-      const savedTasks = localStorage.getItem('tasks');
-      return savedTasks ? JSON.parse(savedTasks) : [];
-    } catch (error) {
-      console.error('Error loading tasks:', error);
-      return [];
-    }
+    const savedTasks = localStorage.getItem('tasks');
+    return savedTasks ? JSON.parse(savedTasks) : [];
   });
   const [editingTaskId, setEditingTaskId] = useState(null);
   const [taskPriority, setTaskPriority] = useState("Medium");
@@ -18,100 +80,46 @@ const App = () => {
   const [dueTime, setDueTime] = useState("");
   const [recurrence, setRecurrence] = useState("None");
   const [suggestions, setSuggestions] = useState([]);
-  const [sortOrder, setSortOrder] = useState("desc");
+  const [sortOrder, setSortOrder] = useState(() => {
+    const savedSortOrder = localStorage.getItem('sortOrder');
+    return savedSortOrder || "desc";
+  });
   const [showShareMsg, setShowShareMsg] = useState(false);
-  const [showCalendarMsg, setShowCalendarMsg] = useState(false);
   const [cursorPos, setCursorPos] = useState({ x: 0, y: 0 });
   const [isCursorActive, setIsCursorActive] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [notifPermission, setNotifPermission] = useState("default");
-  const [filterBy, setFilterBy] = useState("all");
+  const [filterBy, setFilterBy] = useState(() => {
+    const savedFilterBy = localStorage.getItem('filterBy');
+    return savedFilterBy || "all";
+  });
   const [showFilters, setShowFilters] = useState(false);
-  const [sortBy, setSortBy] = useState("creationDate");
+  const [sortBy, setSortBy] = useState(() => {
+    const savedSortBy = localStorage.getItem('sortBy');
+    return savedSortBy || "creationDate";
+  });
   const [showHistory, setShowHistory] = useState(false);
   const [taskHistory, setTaskHistory] = useState(() => {
-    try {
-      const savedHistory = localStorage.getItem('taskHistory');
-      return savedHistory ? JSON.parse(savedHistory) : [];
-    } catch (error) {
-      console.error('Error loading task history:', error);
-      return [];
-    }
+    const savedHistory = localStorage.getItem('taskHistory');
+    return savedHistory ? JSON.parse(savedHistory) : [];
   });
   const [completedTasks, setCompletedTasks] = useState(() => {
-    try {
-      const savedCompleted = localStorage.getItem('completedTasks');
-      return savedCompleted ? JSON.parse(savedCompleted) : [];
-    } catch (error) {
-      console.error('Error loading completed tasks:', error);
-      return [];
-    }
+    const savedCompletedTasks = localStorage.getItem('completedTasks');
+    return savedCompletedTasks ? JSON.parse(savedCompletedTasks) : [];
   });
   const [reminderSettings, setReminderSettings] = useState(() => {
-    try {
-      const savedSettings = localStorage.getItem('reminderSettings');
-      return savedSettings ? JSON.parse(savedSettings) : {
-        enableNotifications: true,
-        reminderBefore: 15,
-        soundEnabled: true
-      };
-    } catch (error) {
-      console.error('Error loading reminder settings:', error);
-      return {
-        enableNotifications: true,
-        reminderBefore: 15,
-        soundEnabled: true
-      };
-    }
+    const savedSettings = localStorage.getItem('reminderSettings');
+    return savedSettings ? JSON.parse(savedSettings) : {
+      enableNotifications: true,
+      reminderBefore: 15,
+      soundEnabled: true
+    };
   });
   const [showReminderSettings, setShowReminderSettings] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [importError, setImportError] = useState("");
+  const [showNotificationPrompt, setShowNotificationPrompt] = useState(true);
 
   const priorities = ["Low", "Medium", "High"];
-
-  // Mouse tracking effect
-  useEffect(() => {
-    const handleMouseMove = (e) => setCursorPos({ x: e.clientX, y: e.clientY });
-    const handleMouseDown = () => setIsCursorActive(true);
-    const handleMouseUp = () => setIsCursorActive(false);
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mousedown', handleMouseDown);
-    window.addEventListener('mouseup', handleMouseUp);
-
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mousedown', handleMouseDown);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, []);
-
-  // Load initial data
-  useEffect(() => {
-    try {
-      // Load all data from localStorage
-      const savedTasks = localStorage.getItem('tasks');
-      const savedHistory = localStorage.getItem('taskHistory');
-      const savedCompleted = localStorage.getItem('completedTasks');
-      const savedSettings = localStorage.getItem('reminderSettings');
-      const savedSortOrder = localStorage.getItem('sortOrder');
-      const savedFilterBy = localStorage.getItem('filterBy');
-      const savedSortBy = localStorage.getItem('sortBy');
-
-      if (savedTasks) setTasks(JSON.parse(savedTasks));
-      if (savedHistory) setTaskHistory(JSON.parse(savedHistory));
-      if (savedCompleted) setCompletedTasks(JSON.parse(savedCompleted));
-      if (savedSettings) setReminderSettings(JSON.parse(savedSettings));
-      if (savedSortOrder) setSortOrder(savedSortOrder);
-      if (savedFilterBy) setFilterBy(savedFilterBy);
-      if (savedSortBy) setSortBy(savedSortBy);
-
-      setIsLoading(false);
-    } catch (error) {
-      console.error('Error loading initial data:', error);
-      setIsLoading(false);
-    }
-  }, []);
 
   // Save to localStorage whenever relevant state changes
   useEffect(() => {
@@ -142,11 +150,31 @@ const App = () => {
     localStorage.setItem('sortBy', sortBy);
   }, [sortBy]);
 
+  // Mouse tracking effect
+  useEffect(() => {
+    const handleMouseMove = (e) => setCursorPos({ x: e.clientX, y: e.clientY });
+    const handleMouseDown = () => setIsCursorActive(true);
+    const handleMouseUp = () => setIsCursorActive(false);
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mousedown', handleMouseDown);
+    window.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mousedown', handleMouseDown);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
+
   // Enhanced notification setup
   useEffect(() => {
     if ("Notification" in window) {
       Notification.requestPermission().then(permission => {
         setNotifPermission(permission);
+        if (permission === 'granted') {
+          setShowNotificationPrompt(false);
+        }
       });
     }
 
@@ -287,9 +315,8 @@ const App = () => {
 
   const formatDate = (date) => date.toISOString().split("T")[0];
 
-  const handleTaskSubmit = () => {
+  const handleTaskSubmit = async () => {
     if (taskInput.trim() === "") return;
-
     const newTask = {
       id: Date.now(),
       todoText: taskInput,
@@ -298,7 +325,7 @@ const App = () => {
       dueTime,
       recurrence,
       notified: false,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
     };
 
     if (editingTaskId !== null) {
@@ -392,6 +419,7 @@ const App = () => {
   const getFilteredAndSortedTasks = () => {
     let filteredTasks = [...tasks];
 
+    // Apply filters
     const filters = {
       all: () => filteredTasks,
       today: () => {
@@ -422,6 +450,7 @@ const App = () => {
       filteredTasks = filters[filterBy]();
     }
 
+    // Apply sorting
     const sorters = {
       priority: () => {
         const priorityOrder = { High: 3, Medium: 2, Low: 1 };
@@ -469,74 +498,117 @@ const App = () => {
     }
   };
 
-  const handleCalendarExport = (task) => {
-    if (!task.dueDate) {
-      alert('Please add a due date to export to calendar');
-      return;
-    }
-
-    const [year, month, day] = task.dueDate.split('-').map(Number);
-    let hour = 0, minute = 0;
-
-    if (task.dueTime) {
-      const [time, period] = task.dueTime.split(' ');
-      [hour, minute] = time.split(':').map(Number);
-      if (period === 'PM' && hour !== 12) hour += 12;
-      if (period === 'AM' && hour === 12) hour = 0;
-    }
-
-    const event = {
-      start: [year, month, day, hour, minute],
-      duration: { hours: 1 },
-      title: task.todoText,
-      description: `Priority: ${task.priority}\nRecurrence: ${task.recurrence}`,
-      status: 'CONFIRMED',
-      busyStatus: 'BUSY',
-      categories: ['Task'],
-    };
-
-    createEvent(event, (error, value) => {
-      if (error) {
-        console.error('Error creating calendar event:', error);
-        return;
+  const handleImportTasks = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const imported = JSON.parse(event.target.result);
+        if (!Array.isArray(imported)) throw new Error("Invalid file format");
+        // Optionally validate each task object here
+        setTasks(prev => [...prev, ...imported]);
+        setImportError("");
+      } catch (err) {
+        setImportError("Failed to import tasks: " + err.message);
       }
-
-      const blob = new Blob([value], { type: 'text/calendar;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `${task.todoText.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.ics`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-
-      setShowCalendarMsg(true);
-      setTimeout(() => setShowCalendarMsg(false), 2000);
-    });
+    };
+    reader.readAsText(file);
   };
 
-  if (isLoading) {
-    return (
-      <div className="app-container">
-        <div className="loading">Loading...</div>
-      </div>
-    );
-  }
+  const handleExportICS = () => {
+    const pad = (num) => (num < 10 ? "0" + num : num);
+    const formatICSDate = (dateStr, timeStr) => {
+      if (!dateStr) return '';
+      const date = new Date(dateStr + (timeStr ? 'T' + timeStr : 'T00:00'));
+      return (
+        date.getUTCFullYear().toString() +
+        pad(date.getUTCMonth() + 1) +
+        pad(date.getUTCDate()) +
+        'T' +
+        pad(date.getUTCHours()) +
+        pad(date.getUTCMinutes()) +
+        pad(date.getUTCSeconds()) + 'Z'
+      );
+    };
+
+    let icsContent = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'CALSCALE:GREGORIAN',
+      'PRODID:-//TaskManager//EN',
+    ];
+
+    tasks.forEach(task => {
+      if (!task.dueDate) return;
+      const start = formatICSDate(task.dueDate, task.dueTime);
+      // Default duration: 1 hour if time is set, all day if not
+      let end;
+      if (task.dueTime) {
+        const startDate = new Date(task.dueDate + 'T' + task.dueTime);
+        const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
+        end = formatICSDate(
+          endDate.toISOString().split('T')[0],
+          endDate.toTimeString().slice(0, 8)
+        );
+      } else {
+        end = formatICSDate(task.dueDate, '23:59:59');
+      }
+      icsContent.push(
+        'BEGIN:VEVENT',
+        'UID:' + task.id + '@taskmanager',
+        'DTSTAMP:' + formatICSDate(new Date().toISOString().split('T')[0], new Date().toTimeString().slice(0, 8)),
+        'DTSTART:' + start,
+        'DTEND:' + end,
+        'SUMMARY:' + (task.todoText || 'Task'),
+        'DESCRIPTION:Priority: ' + (task.priority || 'Medium') + (task.recurrence && task.recurrence !== 'None' ? '\nRecurs: ' + task.recurrence : ''),
+        'END:VEVENT'
+      );
+    });
+
+    icsContent.push('END:VCALENDAR');
+    const blob = new Blob([icsContent.join('\n')], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'tasks.ics';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 0);
+  };
+
+  const formatDueDate = (dateStr) => {
+    const date = new Date(dateStr);
+    const options = {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    };
+    return date.toLocaleDateString('en-US', options);
+  };
 
   return (
-    <div className="app-container">
-      {notifPermission === "default" && (
+    <div className="app-container" style={styles.appContainer}>
+      {showNotificationPrompt && notifPermission !== 'granted' && (
         <div className="notification-permission">
           <div className="notification-content">
-            <p>Enable notifications for task reminders</p>
+            <p style={{ fontSize: '1.1rem' }}>Enable notifications for task reminders</p>
             <button
-              onClick={() => {
-                Notification.requestPermission().then(permission => {
-                  setNotifPermission(permission);
-                });
+              onClick={async () => {
+                const permission = await Notification.requestPermission();
+                setNotifPermission(permission);
+                if (permission === 'granted') {
+                  setShowNotificationPrompt(false);
+                }
               }}
               className="futuristic-button"
+              style={{ padding: '12px 24px', fontSize: '1.1rem' }}
             >
               Enable Notifications
             </button>
@@ -551,15 +623,14 @@ const App = () => {
         className={`cursor-follower ${isCursorActive ? 'active' : ''}`}
         style={{ left: `${cursorPos.x}px`, top: `${cursorPos.y}px` }}
       />
-      <div className="header-container">
-        <h1 className="title">Task Manager</h1>
-      </div>
-
-      <div className="controls-container">
+      <h1 className="title" style={styles.title}>Task Manager</h1>
+      <TaskStats tasks={tasks} completedTasks={completedTasks} />
+      <div className="controls-container" style={styles.controlsContainer}>
         <div className="sort-filter-controls">
           <button
             className="futuristic-button"
             onClick={() => setShowFilters(!showFilters)}
+            style={{ padding: '12px 24px', fontSize: '1.1rem' }}
           >
             {showFilters ? "Hide Filters" : "Show Filters"}
           </button>
@@ -567,14 +638,35 @@ const App = () => {
           <button
             className="futuristic-button"
             onClick={() => setShowReminderSettings(!showReminderSettings)}
+            style={{ padding: '12px 24px', fontSize: '1.1rem' }}
           >
             {showReminderSettings ? "Hide Reminder Settings" : "Reminder Settings"}
           </button>
 
+          <label className="futuristic-button" style={{ cursor: "pointer", marginLeft: 8 }}>
+            Import Tasks
+            <input
+              type="file"
+              accept=".json"
+              style={{ display: "none" }}
+              onChange={handleImportTasks}
+            />
+          </label>
+          {importError && <div style={{ color: "red", marginTop: 8 }}>{importError}</div>}
+
           {showReminderSettings && (
-            <div className="reminder-settings">
-              <div className="setting-group">
-                <label>
+            <div className="reminder-settings" style={{
+              padding: '24px',
+              background: 'white',
+              borderRadius: '12px',
+              boxShadow: '0 2px 15px rgba(0, 0, 0, 0.05)',
+              margin: '20px 0',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '20px'
+            }}>
+              <div className="setting-group" style={{ fontSize: '1.1rem' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <input
                     type="checkbox"
                     checked={reminderSettings.enableNotifications}
@@ -582,28 +674,32 @@ const App = () => {
                       ...prev,
                       enableNotifications: e.target.checked
                     }))}
+                    style={{ width: '20px', height: '20px' }}
                   />
                   Enable Notifications
                 </label>
               </div>
 
-              <div className="setting-group">
-                <label>Reminder Before (minutes):</label>
-                <input
-                  type="number"
-                  min="1"
-                  max="60"
-                  value={reminderSettings.reminderBefore}
-                  onChange={(e) => setReminderSettings(prev => ({
-                    ...prev,
-                    reminderBefore: parseInt(e.target.value)
-                  }))}
-                  className="futuristic-input"
-                />
+              <div className="setting-group" style={{ fontSize: '1.1rem' }}>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  Reminder Before (minutes):
+                  <input
+                    type="number"
+                    min="1"
+                    max="60"
+                    value={reminderSettings.reminderBefore}
+                    onChange={(e) => setReminderSettings(prev => ({
+                      ...prev,
+                      reminderBefore: parseInt(e.target.value)
+                    }))}
+                    className="futuristic-input"
+                    style={{ padding: '12px', fontSize: '1.1rem', width: '100px' }}
+                  />
+                </label>
               </div>
 
-              <div className="setting-group">
-                <label>
+              <div className="setting-group" style={{ fontSize: '1.1rem' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <input
                     type="checkbox"
                     checked={reminderSettings.soundEnabled}
@@ -611,6 +707,7 @@ const App = () => {
                       ...prev,
                       soundEnabled: e.target.checked
                     }))}
+                    style={{ width: '20px', height: '20px' }}
                   />
                   Enable Sound
                 </label>
@@ -619,60 +716,79 @@ const App = () => {
           )}
 
           {showFilters && (
-            <div className="filter-options">
-              <div className="filter-group">
-                <label>Filter By:</label>
-                <select
-                  value={filterBy}
-                  onChange={(e) => setFilterBy(e.target.value)}
-                  className="futuristic-input"
-                >
-                  <option value="all">All Tasks</option>
-                  <option value="today">Today</option>
-                  <option value="thisWeek">This Week</option>
-                  <option value="overdue">Overdue</option>
-                  <option value="highPriority">High Priority</option>
-                  <option value="withReminders">With Reminders</option>
-                  <option value="completed">Completed Tasks</option>
-                </select>
+            <div className="filter-options" style={{
+              padding: '24px',
+              background: 'white',
+              borderRadius: '12px',
+              boxShadow: '0 2px 15px rgba(0, 0, 0, 0.05)',
+              margin: '20px 0',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '20px'
+            }}>
+              <div className="filter-group" style={{ fontSize: '1.1rem' }}>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  Filter By:
+                  <select
+                    value={filterBy}
+                    onChange={(e) => setFilterBy(e.target.value)}
+                    className="futuristic-input"
+                    style={{ padding: '12px', fontSize: '1.1rem' }}
+                  >
+                    <option value="all">All Tasks</option>
+                    <option value="today">Today</option>
+                    <option value="thisWeek">This Week</option>
+                    <option value="overdue">Overdue</option>
+                    <option value="highPriority">High Priority</option>
+                    <option value="withReminders">With Reminders</option>
+                    <option value="completed">Completed Tasks</option>
+                  </select>
+                </label>
               </div>
 
-              <div className="filter-group">
-                <label>Sort By:</label>
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="futuristic-input"
-                >
-                  <option value="creationDate">Creation Date</option>
-                  <option value="priority">Priority</option>
-                  <option value="dueDate">Due Date</option>
-                </select>
+              <div className="filter-group" style={{ fontSize: '1.1rem' }}>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  Sort By:
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                    className="futuristic-input"
+                    style={{ padding: '12px', fontSize: '1.1rem' }}
+                  >
+                    <option value="creationDate">Creation Date</option>
+                    <option value="priority">Priority</option>
+                    <option value="dueDate">Due Date</option>
+                  </select>
+                </label>
               </div>
 
-              <div className="filter-group">
-                <label>Sort Order:</label>
-                <select
-                  value={sortOrder}
-                  onChange={(e) => setSortOrder(e.target.value)}
-                  className="futuristic-input"
-                >
-                  <option value="desc">Newest/High Priority First</option>
-                  <option value="asc">Oldest/Low Priority First</option>
-                </select>
+              <div className="filter-group" style={{ fontSize: '1.1rem' }}>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  Sort Order:
+                  <select
+                    value={sortOrder}
+                    onChange={(e) => setSortOrder(e.target.value)}
+                    className="futuristic-input"
+                    style={{ padding: '12px', fontSize: '1.1rem' }}
+                  >
+                    <option value="desc">Newest/High Priority First</option>
+                    <option value="asc">Oldest/Low Priority First</option>
+                  </select>
+                </label>
               </div>
             </div>
           )}
         </div>
       </div>
 
-      <div className="input-container">
+      <div className="input-container" style={styles.inputContainer}>
         <input
           type="text"
           value={taskInput}
           onChange={handleInput}
           placeholder="Enter your task here..."
           className="futuristic-input"
+          style={{ padding: '16px', fontSize: '1.2rem', height: '50px' }}
           onFocus={() => setShowSuggestions(true)}
           onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
         />
@@ -730,9 +846,9 @@ const App = () => {
         </button>
       </div>
 
-      <div className="todo-list">
+      <div className="todo-list" style={styles.todoList}>
         <div className="todo-header">
-          <h2 className="sub-title">📋 Your Tasks</h2>
+          <h2 className="sub-title" style={{ fontSize: '2rem', marginBottom: '24px' }}>📋 Your Tasks</h2>
           <div className="header-buttons">
             {tasks.length > 0 && (
               <>
@@ -742,8 +858,11 @@ const App = () => {
                 >
                   {showHistory ? "Hide History" : "Show History"}
                 </button>
-                <button onClick={handleShare} className="share-button" title="Share Task Manager">
+                <button onClick={handleShare} className="futuristic-button share-button" title="Share Task Manager">
                   📤 Share
+                </button>
+                <button onClick={handleExportICS} className="futuristic-button export-ics-button" title="Export tasks to calendar">
+                  📅 Export
                 </button>
               </>
             )}
@@ -752,11 +871,6 @@ const App = () => {
         {showShareMsg && (
           <div className="share-message">
             Link copied to clipboard!
-          </div>
-        )}
-        {showCalendarMsg && (
-          <div className="share-message">
-            Calendar event exported successfully!
           </div>
         )}
         {showHistory && (
@@ -789,13 +903,16 @@ const App = () => {
             <div
               key={task.id}
               className={`todo-item ${task.dueTime ? 'task-with-reminder' : ''} ${completedTasks.some(t => t.id === task.id) ? 'completed' : ''}`}
-              style={{ borderLeft: `4px solid ${getPriorityColor(task.priority)}` }}
+              style={{
+                ...styles.todoItem,
+                borderLeft: `4px solid ${getPriorityColor(task.priority)}`
+              }}
             >
               <div className="todo-content">
-                <span>{task.todoText}</span>
+                <span className="task-text">{task.todoText}</span>
                 {task.dueDate && (
-                  <span className="due-date">
-                    Due: {task.dueDate} {task.dueTime && `at ${task.dueTime}`}
+                  <span className="due-date" style={{ marginLeft: '12px' }}>
+                    Due: {formatDueDate(task.dueDate + (task.dueTime ? 'T' + task.dueTime : 'T00:00'))}
                   </span>
                 )}
                 {task.recurrence !== "None" && (
@@ -811,19 +928,35 @@ const App = () => {
                     <button onClick={() => handleEdit(task.id)}>Edit</button>
                     <button onClick={() => handleTaskComplete(task.id)}>Complete</button>
                     <button onClick={() => handleDelete(task.id)}>Delete</button>
-                    <button
-                      onClick={() => handleCalendarExport(task)}
-                      className="calendar-button"
-                      title="Export to Calendar"
-                    >
-                      📅 Calendar
-                    </button>
                   </>
                 )}
               </div>
             </div>
           ))
         )}
+      </div>
+      <TaskCalendar tasks={tasks} completedTasks={completedTasks} />
+      <div className="tasks-summary" style={styles.tasksSummary}>
+        <div className="pending-tasks" style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          color: '#213555',
+          fontWeight: '500'
+        }}>
+          <span>⏳ Pending Tasks:</span>
+          <span style={{ fontWeight: '600' }}>{tasks.length}</span>
+        </div>
+        <div className="completed-tasks" style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          color: '#4CAF50',
+          fontWeight: '500'
+        }}>
+          <span>✅ Completed Tasks:</span>
+          <span style={{ fontWeight: '600' }}>{completedTasks.length}</span>
+        </div>
       </div>
     </div>
   );
